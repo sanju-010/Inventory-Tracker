@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Local Product Inventory</title>
+    <!-- PWA Meta Tags (Enables 'Install as App' in Chrome/Edge) -->
+    <meta name="theme-color" content="#4f46e5">
+    <!-- Note: A full PWA requires a manifest.json and service worker, 
+         but these tags allow the browser to suggest installation. -->
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons for aesthetic UI -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom styles for the app */
+        :root {
+            --primary: #4f46e5;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .scrollable-list {
+            max-height: 60vh; /* Shorter to make room for the tools menu */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        /* Custom styling for the Import file input to hide the default button */
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            height: 100%;
+            width: 100%;
+        }
+        /* State for modal visibility */
+        .modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal.visible .modal-content {
+            transform: scale(1);
+        }
+        .modal .modal-content {
+             transition: transform 0.3s ease-in-out;
+             transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="">
+    <div id="app" class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-2">
+        <!-- <header class="mb-6 border-b pb-4">
+            <h1 class="text-3xl font-extrabold text-gray-800">Local Product Stocker</h1>
+            <p class="text-sm text-gray-500 mt-1">Data saved securely on your device using Local Storage.</p>
+        </header> -->
+
+         <!-- Tools Menu: Export/Import -->
+        <div class="mb-6 p-4 bg-indigo-50 rounded-lg shadow-inner flex flex-wrap justify-between items-center gap-3">
+            <span class="text-sm font-medium text-gray-700">Data Tools:</span>
+            <div class="flex flex-wrap gap-3">
+                <!-- Export Button -->
+                <button onclick="exportData()" 
+                        class="flex items-center text-sm px-4 py-2 bg-indigo-200 text-indigo-800 rounded-lg hover:bg-indigo-300 transition duration-150 font-medium">
+                    <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                    Export List (JSON)
+                </button>
+                
+                <!-- Import Button (Wraps file input) -->
+                <div class="file-input-wrapper">
+                    <button type="button" 
+                            class="flex items-center text-sm px-4 py-2 bg-indigo-200 text-indigo-800 rounded-lg hover:bg-indigo-300 transition duration-150 font-medium">
+                        <i data-lucide="upload" class="w-4 h-4 mr-2"></i>
+                        Import List
+                    </button>
+                    <!-- Actual hidden file input -->
+                    <input type="file" id="import-file" accept="application/json" onchange="importData(event)">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Controls (Search and Add) -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <!-- Search Input -->
+            <div class="relative flex-grow">
+                <input type="text" id="search-input" placeholder="Search by item name..." 
+                       class="w-full py-3 pl-10 pr-4 border border-gray-200 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-sm" 
+                       oninput="filterProducts()">
+                <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            </div>
+            <!-- Add Button -->
+            <button id="add-product-btn" 
+                    class="flex-shrink-0 bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-150 flex items-center justify-center" 
+                    onclick="showAddModal()">
+                <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                Add Product
+            </button>
+        </div>
+
+        <!-- Product List -->
+        <div class="scrollable-list border border-gray-200 rounded-lg">
+            <div id="product-list" class="space-y-0 divide-y divide-gray-200">
+                <!-- Products will be rendered here -->
+                <p id="loading-message" class="text-center text-gray-500 py-10">Loading products from local storage...</p>
+            </div>
+            <p id="empty-message" class="text-center text-gray-500 py-10 hidden">No products found. Add one now!</p>
+            <p id="no-results" class="text-center text-gray-500 py-10 hidden">No items match your search.</p>
+        </div>
+
+        <!-- Notification/Error Message Area -->
+        <div id="notification-area" class="mt-4"></div>
+
+    </div>
+
+    <!-- 1. Add/Edit Product Modal -->
+    <div id="add-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-lg transform">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Add New Product</h2>
+                <form id="product-form" onsubmit="handleProductSubmit(event)">
+                    <div class="space-y-4">
+                        <!-- Name -->
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Item Name <span class="text-red-500">*</span></label>
+                            <input type="text" id="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-primary focus:border-primary">
+                        </div>
+                        <!-- Price and Unit (Required) -->
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <div class="flex-1">
+                                <label for="price" class="block text-sm font-medium text-gray-700">Price <span class="text-red-500">*</span></label>
+                                <input type="number" id="price" required step="0.01" min="0" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-primary focus:border-primary">
+                            </div>
+                            <div class="flex-1">
+                                <label for="unit" class="block text-sm font-medium text-gray-700">Unit (e.g., kg, meter) <span class="text-red-500">*</span></label>
+                                <input type="text" id="unit" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-primary focus:border-primary">
+                            </div>
+                        </div>
+                        <!-- Place Stored (Optional) -->
+                        <div>
+                            <label for="placeStored" class="block text-sm font-medium text-gray-700">Place Stored</label>
+                            <input type="text" id="placeStored" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-primary focus:border-primary">
+                        </div>
+                        <!-- Description (Optional) -->
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                            <textarea id="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-primary focus:border-primary"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="form-error-message" class="mt-3 text-red-500 text-sm font-medium hidden"></div>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-150 font-medium" onclick="hideAddModal()">Cancel</button>
+                        <button type="submit" id="save-product-btn" class="px-4 py-2 text-white rounded-lg bg-indigo-700 transition duration-150 font-medium flex items-center">
+                            <span id="save-text">Save Product</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. View Details Modal -->
+    <div id="details-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md transform">
+            <div class="p-6">
+                <h2 id="detail-name" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3"></h2>
+                
+                <div class="space-y-3 text-gray-700">
+                    <p><strong>Price / Unit:</strong> <span id="detail-price-unit" class="font-medium text-primary"></span></p>
+                    <p><strong>Storage Location:</strong> <span id="detail-place-stored"></span></p>
+                    <hr class="my-3">
+                    <p class="font-semibold">Description:</p>
+                    <p id="detail-description" class="text-sm italic bg-gray-50 p-3 rounded-lg"></p>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="button" class="px-4 py-2 text-white rounded-lg bg-indigo-700 transition duration-150 font-medium" onclick="hideDetailsModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Use a global array to hold the current product list in memory
+        let allProducts = []; 
+        
+        // --- Local Storage Functions ---
+
+        /** Retrieves products from Local Storage. */
+        function getProducts() {
+            const data = localStorage.getItem('products');
+            try {
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error("Error parsing products from Local Storage:", e);
+                showNotification("Error loading data from storage. Data may be corrupted.", true);
+                return [];
+            }
+        }
+
+        /** Saves the current array of products to Local Storage. */
+        function saveProducts() {
+            try {
+                localStorage.setItem('products', JSON.stringify(allProducts));
+            } catch (e) {
+                console.error("Error saving products to Local Storage:", e);
+                showNotification("Error saving data. Local storage might be full or unavailable.", true);
+            }
+        }
+
+        /** Generates a unique ID (simple timestamp + random number) */
+        function generateId() {
+            // Using a more robust ID format
+            return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+        }
+
+        // --- Utility Functions ---
+
+        /** Shows a temporary notification in the notification area. */
+        function showNotification(message, isError = false) {
+            const area = document.getElementById('notification-area');
+            const color = isError ? 'bg-red-100 text-red-700 border-red-400' : 'bg-green-100 text-green-700 border-green-400';
+            
+            const notification = document.createElement('div');
+            notification.className = `p-3 mb-2 border rounded-lg shadow-sm ${color} transition-opacity duration-300 ease-in-out`;
+            notification.innerHTML = `<span>${message}</span>`;
+            
+            // Clear old notifications and add new one
+            area.innerHTML = '';
+            area.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, 5000);
+        }
+
+        // --- Data Handling (Read/Filter/Render) ---
+
+        /** * Loads data from storage and triggers rendering/filtering.
+         * FIX: Added explicit null check for 'loading-message' to prevent TypeError.
+         */
+        function loadProducts() {
+            allProducts = getProducts();
+            filterProducts();
+            
+            const loadingMessage = document.getElementById('loading-message');
+            // This is the line that caused the error if the element wasn't found immediately.
+            if (loadingMessage) {
+                loadingMessage.classList.add('hidden');
+            }
+        }
+
+        /** Renders the list of products based on the search input. */
+        window.filterProducts = function() {
+            const listContainer = document.getElementById('product-list');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+            listContainer.innerHTML = '';
+            
+            const filteredProducts = allProducts.filter(p => 
+                p.name.toLowerCase().includes(searchTerm)
+            );
+            
+            const emptyMsg = document.getElementById('empty-message');
+            const noResultsMsg = document.getElementById('no-results');
+
+            emptyMsg.classList.add('hidden');
+            noResultsMsg.classList.add('hidden');
+
+            if (allProducts.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+
+            if (filteredProducts.length === 0) {
+                noResultsMsg.classList.remove('hidden');
+                return;
+            }
+
+            filteredProducts.forEach(product => {
+                const item = createProductListItem(product);
+                listContainer.appendChild(item);
+            });
+        }
+
+        /** Creates the HTML element for a single product in the list. */
+        function createProductListItem(product) {
+            const li = document.createElement('div');
+            li.className = 'flex justify-between items-center bg-gray-50 hover:bg-gray-100 p-4 transition duration-150 border-b border-gray-100 last:border-b-0';
+            li.onclick = () => showDetailsModal(product);
+
+            // Left side: Name
+            const nameEl = document.createElement('span');
+            nameEl.className = 'text-lg font-semibold text-gray-800 truncate cursor-pointer flex-grow';
+            nameEl.textContent = product.name;
+            li.appendChild(nameEl);
+
+            // Right side: Price / Unit
+            const priceUnitContainer = document.createElement('div');
+            priceUnitContainer.className = 'flex items-center flex-shrink-0 ml-4 space-x-3';
+            
+            const priceEl = document.createElement('span');
+            const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(product.price);
+            priceEl.className = 'text-primary font-medium';
+            priceEl.textContent = `${formattedPrice} / ${product.unit}`;
+            priceUnitContainer.appendChild(priceEl);
+            
+            // Delete Button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-gray-200 transition';
+            deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation(); // Stop click from opening details modal
+                deleteProduct(product.id, product.name);
+            };
+            priceUnitContainer.appendChild(deleteBtn);
+
+            li.appendChild(priceUnitContainer);
+            
+            return li;
+        }
+
+        // --- Data Handling (Write/Delete) ---
+
+        /** Handles the form submission to save a new product. */
+        window.handleProductSubmit = function(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('name').value.trim();
+            const priceStr = document.getElementById('price').value.trim();
+            const unit = document.getElementById('unit').value.trim();
+            const placeStored = document.getElementById('placeStored').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const price = parseFloat(priceStr);
+
+            const errorMessageEl = document.getElementById('form-error-message');
+            errorMessageEl.classList.add('hidden');
+
+            // 1. Validation (Required fields: Name, Price, Unit)
+            if (!name || !priceStr || !unit || isNaN(price) || price < 0) {
+                errorMessageEl.textContent = 'Name, Price, and Unit are required fields.';
+                errorMessageEl.classList.remove('hidden');
+                return;
+            }
+
+            const newProduct = {
+                id: generateId(), // Add a unique ID for deletion
+                name: name,
+                unit: unit.toLowerCase(),
+                price: price,
+                placeStored: placeStored || 'N/A',
+                description: description || 'No description provided.',
+                createdAt: new Date().toISOString()
+            };
+
+            // 2. Add to in-memory array
+            allProducts.push(newProduct);
+            
+            // 3. Save to Local Storage and update UI
+            saveProducts();
+            filterProducts();
+            
+            showNotification(`Product "${newProduct.name}" added successfully!`);
+            
+            // 4. Clear form and close modal
+            document.getElementById('product-form').reset();
+            hideAddModal();
+        }
+
+        /** Removes a product from the list and updates storage. */
+        function deleteProduct(productId, productName) {
+            allProducts = allProducts.filter(p => p.id !== productId);
+            saveProducts();
+            filterProducts();
+            showNotification(`Product "${productName}" deleted.`, false);
+        }
+        
+        // --- Modal/UI Controls ---
+
+        window.showAddModal = function() {
+            const addModal = document.getElementById('add-modal');
+            addModal.classList.add('visible');
+        }
+
+        window.hideAddModal = function() {
+            const addModal = document.getElementById('add-modal');
+            addModal.classList.remove('visible');
+            
+            // Hide errors and reset form after transition
+            setTimeout(() => {
+                document.getElementById('product-form').reset();
+                document.getElementById('form-error-message').classList.add('hidden');
+            }, 300);
+        }
+
+        window.showDetailsModal = function(product) {
+            const detailsModal = document.getElementById('details-modal');
+            
+            // Populate the modal fields
+            const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(product.price);
+            
+            document.getElementById('detail-name').textContent = product.name;
+            document.getElementById('detail-price-unit').textContent = `${formattedPrice} / ${product.unit}`;
+            document.getElementById('detail-place-stored').textContent = product.placeStored;
+            document.getElementById('detail-description').textContent = product.description;
+
+            // Show the modal
+            detailsModal.classList.add('visible');
+        }
+
+        window.hideDetailsModal = function() {
+            const detailsModal = document.getElementById('details-modal');
+            detailsModal.classList.remove('visible');
+        }
+
+        
+        // --- Export/Import Functions ---
+        
+        /** Exports the current product list as a JSON file download. */
+        window.exportData = function() {
+            if (allProducts.length === 0) {
+                showNotification("Cannot export. The product list is empty.", true);
+                return;
+            }
+            try {
+                const dataStr = JSON.stringify(allProducts, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `inventory_export_${new Date().toISOString().slice(0, 10)}.json`;
+                
+                // Programmatically click the link to trigger download
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                showNotification("Product list exported successfully!", false);
+
+            } catch (error) {
+                console.error("Export failed:", error);
+                showNotification("Export failed. Check console for details.", true);
+            }
+        }
+
+        /** Imports data from a user-selected JSON file. */
+        window.importData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+
+                    if (!Array.isArray(importedData)) {
+                        throw new Error("Invalid file structure. Expected a JSON array.");
+                    }
+
+                    // Simple check for data structure validity
+                    if (importedData.length > 0 && 
+                        (!importedData[0].name || !importedData[0].price || !importedData[0].unit)
+                    ) {
+                        throw new Error("File content mismatch. Imported data lacks required fields (name, price, unit).");
+                    }
+
+                    // Always merge: append new products to the existing list
+                    allProducts = [...allProducts, ...importedData];
+                    showNotification(`Successfully added ${importedData.length} items to the current list.`);
+                    
+                    saveProducts();
+                    filterProducts();
+
+                } catch (error) {
+                    console.error("Import failed:", error);
+                    showNotification(`Import failed: ${error.message || 'The file is not a valid JSON list.'}`, true);
+                }
+                // Clear the file input so the user can re-import the same file if needed
+                event.target.value = null; 
+            };
+            
+            reader.readAsText(file);
+        }
+
+
+        // --- Startup ---
+        window.onload = function() {
+            // Initialize Lucide Icons
+            lucide.createIcons();
+            // Load initial data
+            loadProducts();
+            
+            // Get modal elements after the DOM is fully loaded
+            const addModal = document.getElementById('add-modal');
+            const detailsModal = document.getElementById('details-modal');
+
+            // Helper function for backdrop close
+            const setupBackdropClose = (modalElement, hideFunction) => {
+                modalElement.addEventListener('click', (event) => {
+                    // Check if the click target is the modal backdrop itself (not the content)
+                    if (event.target === modalElement) {
+                        hideFunction();
+                    }
+                });
+            }
+
+            // Attach backdrop close listener for both Modals
+            setupBackdropClose(addModal, hideAddModal);
+            setupBackdropClose(detailsModal, hideDetailsModal);
+        }
+    </script>
+</body>
+</html>
