@@ -45,34 +45,28 @@
             height: 100%;
             width: 100%;
         }
+        /* State for modal visibility */
+        .modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal.visible .modal-content {
+            transform: scale(1);
+        }
+        .modal .modal-content {
+             transition: transform 0.3s ease-in-out;
+             transform: scale(0.95);
+        }
     </style>
 </head>
-<body class="p-4 sm:p-8">
-    <div id="app" class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-6 sm:p-8">
-        <header class="mb-6 border-b pb-4">
+<body class="">
+    <div id="app" class="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-2">
+        <!-- <header class="mb-6 border-b pb-4">
             <h1 class="text-3xl font-extrabold text-gray-800">Local Product Stocker</h1>
             <p class="text-sm text-gray-500 mt-1">Data saved securely on your device using Local Storage.</p>
-        </header>
+        </header> -->
 
-        <!-- Main Controls (Search and Add) -->
-        <div class="flex flex-col sm:flex-row gap-3 mb-6">
-            <!-- Search Input -->
-            <div class="relative flex-grow">
-                <input type="text" id="search-input" placeholder="Search by item name..." 
-                       class="w-full py-3 pl-10 pr-4 border border-gray-200 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-sm" 
-                       oninput="filterProducts()">
-                <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-            </div>
-            <!-- Add Button -->
-            <button id="add-product-btn" 
-                    class="flex-shrink-0 bg-primary hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-150 flex items-center justify-center" 
-                    onclick="showAddModal()">
-                <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
-                Add Product
-            </button>
-        </div>
-        
-        <!-- Tools Menu: Export/Import -->
+         <!-- Tools Menu: Export/Import -->
         <div class="mb-6 p-4 bg-indigo-50 rounded-lg shadow-inner flex flex-wrap justify-between items-center gap-3">
             <span class="text-sm font-medium text-gray-700">Data Tools:</span>
             <div class="flex flex-wrap gap-3">
@@ -95,6 +89,24 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Main Controls (Search and Add) -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <!-- Search Input -->
+            <div class="relative flex-grow">
+                <input type="text" id="search-input" placeholder="Search by item name..." 
+                       class="w-full py-3 pl-10 pr-4 border border-gray-200 rounded-lg focus:ring-primary focus:border-primary transition duration-150 shadow-sm" 
+                       oninput="filterProducts()">
+                <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            </div>
+            <!-- Add Button -->
+            <button id="add-product-btn" 
+                    class="flex-shrink-0 bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-150 flex items-center justify-center" 
+                    onclick="showAddModal()">
+                <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+                Add Product
+            </button>
+        </div>
 
         <!-- Product List -->
         <div class="scrollable-list border border-gray-200 rounded-lg">
@@ -113,7 +125,7 @@
 
     <!-- 1. Add/Edit Product Modal -->
     <div id="add-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-transform duration-300 scale-95">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-lg transform">
             <div class="p-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">Add New Product</h2>
                 <form id="product-form" onsubmit="handleProductSubmit(event)">
@@ -150,7 +162,7 @@
 
                     <div class="mt-6 flex justify-end gap-3">
                         <button type="button" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-150 font-medium" onclick="hideAddModal()">Cancel</button>
-                        <button type="submit" id="save-product-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition duration-150 font-medium flex items-center">
+                        <button type="submit" id="save-product-btn" class="px-4 py-2 text-white rounded-lg bg-indigo-700 transition duration-150 font-medium flex items-center">
                             <span id="save-text">Save Product</span>
                         </button>
                     </div>
@@ -161,7 +173,7 @@
 
     <!-- 2. View Details Modal -->
     <div id="details-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-transform duration-300 scale-95">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md transform">
             <div class="p-6">
                 <h2 id="detail-name" class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3"></h2>
                 
@@ -174,7 +186,7 @@
                 </div>
 
                 <div class="mt-6 flex justify-end">
-                    <button type="button" class="px-4 py-2 text-white bg-primary rounded-lg hover:bg-indigo-700 transition duration-150 font-medium" onclick="hideDetailsModal()">Close</button>
+                    <button type="button" class="px-4 py-2 text-white rounded-lg bg-indigo-700 transition duration-150 font-medium" onclick="hideDetailsModal()">Close</button>
                 </div>
             </div>
         </div>
@@ -183,7 +195,7 @@
     <script>
         // Use a global array to hold the current product list in memory
         let allProducts = []; 
-
+        
         // --- Local Storage Functions ---
 
         /** Retrieves products from Local Storage. */
@@ -210,7 +222,8 @@
 
         /** Generates a unique ID (simple timestamp + random number) */
         function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+            // Using a more robust ID format
+            return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
         }
 
         // --- Utility Functions ---
@@ -236,11 +249,18 @@
 
         // --- Data Handling (Read/Filter/Render) ---
 
-        /** Loads data from storage and triggers rendering/filtering. */
+        /** * Loads data from storage and triggers rendering/filtering.
+         * FIX: Added explicit null check for 'loading-message' to prevent TypeError.
+         */
         function loadProducts() {
             allProducts = getProducts();
             filterProducts();
-            document.getElementById('loading-message').classList.add('hidden');
+            
+            const loadingMessage = document.getElementById('loading-message');
+            // This is the line that caused the error if the element wasn't found immediately.
+            if (loadingMessage) {
+                loadingMessage.classList.add('hidden');
+            }
         }
 
         /** Renders the list of products based on the search input. */
@@ -361,38 +381,33 @@
 
         /** Removes a product from the list and updates storage. */
         function deleteProduct(productId, productName) {
-            // Confirmation via custom notification pattern (avoiding alert)
-            const confirmDelete = confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`);
-            
-            if (confirmDelete) {
-                allProducts = allProducts.filter(p => p.id !== productId);
-                saveProducts();
-                filterProducts();
-                showNotification(`Product "${productName}" deleted.`, false);
-            }
+            allProducts = allProducts.filter(p => p.id !== productId);
+            saveProducts();
+            filterProducts();
+            showNotification(`Product "${productName}" deleted.`, false);
         }
         
         // --- Modal/UI Controls ---
 
         window.showAddModal = function() {
-            const modal = document.getElementById('add-modal');
-            modal.classList.remove('pointer-events-none', 'opacity-0');
-            modal.querySelector('div.max-w-lg').classList.remove('scale-95');
+            const addModal = document.getElementById('add-modal');
+            addModal.classList.add('visible');
         }
 
         window.hideAddModal = function() {
-            const modal = document.getElementById('add-modal');
-            modal.classList.add('opacity-0');
-            modal.querySelector('div.max-w-lg').classList.add('scale-95');
+            const addModal = document.getElementById('add-modal');
+            addModal.classList.remove('visible');
+            
             // Hide errors and reset form after transition
             setTimeout(() => {
-                modal.classList.add('pointer-events-none');
                 document.getElementById('product-form').reset();
                 document.getElementById('form-error-message').classList.add('hidden');
             }, 300);
         }
 
         window.showDetailsModal = function(product) {
+            const detailsModal = document.getElementById('details-modal');
+            
             // Populate the modal fields
             const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(product.price);
             
@@ -402,19 +417,14 @@
             document.getElementById('detail-description').textContent = product.description;
 
             // Show the modal
-            const modal = document.getElementById('details-modal');
-            modal.classList.remove('pointer-events-none', 'opacity-0');
-            modal.querySelector('div.max-w-md').classList.remove('scale-95');
+            detailsModal.classList.add('visible');
         }
 
         window.hideDetailsModal = function() {
-            const modal = document.getElementById('details-modal');
-            modal.classList.add('opacity-0');
-            modal.querySelector('div.max-w-md').classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('pointer-events-none');
-            }, 300);
+            const detailsModal = document.getElementById('details-modal');
+            detailsModal.classList.remove('visible');
         }
+
         
         // --- Export/Import Functions ---
         
@@ -467,19 +477,9 @@
                         throw new Error("File content mismatch. Imported data lacks required fields (name, price, unit).");
                     }
 
-                    // Confirmation before overwriting/merging
-                    const action = confirm(`Imported file contains ${importedData.length} items. Do you want to REPLACE the current list or ADD/MERGE the items? (OK to REPLACE, Cancel to ADD/MERGE)`);
-                    
-                    if (action) {
-                        // REPLACE: Completely overwrite the current list
-                        allProducts = importedData;
-                        showNotification(`Successfully replaced list with ${importedData.length} items from file.`);
-                    } else {
-                        // MERGE: Add new items (simple merge, assuming IDs are new/unique)
-                        // A more robust solution would check for ID collisions.
-                        allProducts = [...allProducts, ...importedData];
-                        showNotification(`Successfully added/merged ${importedData.length} items to the current list.`);
-                    }
+                    // Always merge: append new products to the existing list
+                    allProducts = [...allProducts, ...importedData];
+                    showNotification(`Successfully added ${importedData.length} items to the current list.`);
                     
                     saveProducts();
                     filterProducts();
@@ -502,6 +502,24 @@
             lucide.createIcons();
             // Load initial data
             loadProducts();
+            
+            // Get modal elements after the DOM is fully loaded
+            const addModal = document.getElementById('add-modal');
+            const detailsModal = document.getElementById('details-modal');
+
+            // Helper function for backdrop close
+            const setupBackdropClose = (modalElement, hideFunction) => {
+                modalElement.addEventListener('click', (event) => {
+                    // Check if the click target is the modal backdrop itself (not the content)
+                    if (event.target === modalElement) {
+                        hideFunction();
+                    }
+                });
+            }
+
+            // Attach backdrop close listener for both Modals
+            setupBackdropClose(addModal, hideAddModal);
+            setupBackdropClose(detailsModal, hideDetailsModal);
         }
     </script>
 </body>
